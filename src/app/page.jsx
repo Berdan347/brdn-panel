@@ -227,9 +227,10 @@ export default function Page() {
     const header = ["fullName", "username", "email", "city", "phone", "bio"];
     const rows = filteredFakeRows.map((row) => [row.fullName, row.username, row.email, row.city, row.phone, row.bio]);
     const csv = [header, ...rows]
-      .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
-      .join("
-");
+  .map(line =>
+    line.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(",")
+  )
+  .join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
