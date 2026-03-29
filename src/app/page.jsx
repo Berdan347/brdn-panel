@@ -1,680 +1,619 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Copy,
-  RefreshCw,
-  User,
-  KeyRound,
-  FileText,
-  Shuffle,
   Sparkles,
-  LayoutDashboard,
-  Settings,
   Wand2,
-  BadgeInfo,
+  Copy,
+  Download,
+  History,
+  Star,
+  Trash2,
+  Search,
+  Settings,
+  ShieldCheck,
+  LayoutDashboard,
   Mail,
-  Globe,
-  LogIn,
-  UserPlus,
-  Check,
+  Gauge,
+  Info,
+  MoonStar,
+  ChevronRight,
 } from "lucide-react";
 
-const adjectives = [
-  "Shadow","Nova","Hyper","Vortex","Frost","Venom","Ghost","Rapid","Dark","Silent",
-  "Alpha","Blaze","Storm","Pixel","Neon","Steel","Turbo","Rogue","Void","Cosmo"
-];
+const MAX_HISTORY = 12;
 
-const nouns = [
-  "Wolf","Falcon","Byte","Knight","Echo","Hunter","Pulse","Raven","Titan","Orbit",
-  "Cipher","Drift","Phantom","Comet","Sniper","Spark","Nexus","Blade","Shift","Crown"
-];
-
-const firstNames = ["Arda","Eren","Mert","Kaan","Berk","Deniz","Emir","Yusuf","Mina","Zeynep","Elif","Asya"];
-const lastNames = ["Yılmaz","Kaya","Demir","Çelik","Aydın","Koç","Arslan","Şahin","Acar","Taş"];
-const cities = ["İzmir","İstanbul","Ankara","Bursa","Antalya","Eskişehir","Muğla","Adana"];
-const bios = [
-  "Dijital projelerle ilgileniyor.",
-  "Tasarım ve içerik üretmeyi seviyor.",
-  "Teknoloji odaklı bir profil.",
-  "Hızlı çalışan modern araçları tercih ediyor.",
-  "Topluluk ve üretim odaklı bir kullanıcı."
-];
-
-const bioTemplates = [
-  "Minimal yaşayan, büyük düşünen biri.",
-  "Tasarım, teknoloji ve hız odaklı.",
-  "Sessiz ama etkili projeler üretir.",
-  "Dijital dünyada iz bırakmayı sever.",
-  "Modern, sade ve güçlü detaylardan hoşlanır.",
-  "Fikirleri ürüne dönüştürmeyi sever.",
-];
-
-function rand(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function randNum(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
 }
 
 function copyText(text) {
   navigator.clipboard.writeText(text);
 }
 
-function generateUsername(style = "cool") {
-  const adj = rand(adjectives);
-  const noun = rand(nouns);
-  const num = randNum(10, 9999);
-
-  if (style === "clean") return `${adj}${noun}`;
-  if (style === "gaming") return `${adj}_${noun}_${num}`;
-  if (style === "short") return `${adj.slice(0, 3)}${noun.slice(0, 3)}${randNum(1, 99)}`;
-  return `${adj}${noun}${num}`;
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function generatePassword(length = 14) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
+function parseGmail(addr) {
+  const a = (addr || "").trim();
+  const m = a.match(/^([^@]+)@gmail\.com$/i);
+  if (!m) return null;
+  const local = m[1];
+  const normalized = local.replace(/\./g, "");
+  return { local: normalized, domain: "gmail.com" };
+}
+
+function dotVariants(local, limit) {
+  const chars = local.split("");
+  const n = chars.length;
+  if (n <= 1) return [local];
+  const maxMasks = 1 << (n - 1);
+  const out = [];
+  for (let mask = 0; mask < maxMasks && out.length < limit; mask++) {
+    let s = chars[0];
+    for (let i = 0; i < n - 1; i++) {
+      if (mask & (1 << i)) s += ".";
+      s += chars[i + 1];
+    }
+    out.push(s);
   }
   return out;
 }
 
-function generateProfile() {
-  const first = rand(firstNames);
-  const last = rand(lastNames);
-  const birthYear = randNum(1996, 2006);
-  const city = rand(cities);
-  const username = `${first.toLowerCase()}${last.toLowerCase()}${randNum(10, 999)}`;
-
-  return {
-    name: `${first} ${last}`,
-    username,
-    email: `${username}@maildemo.com`,
-    city,
-    bio: rand(bios),
-    birthYear,
-  };
+function uniq(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) {
+    if (!seen.has(x)) {
+      seen.add(x);
+      out.push(x);
+    }
+  }
+  return out;
 }
 
-function generateEmailVariant(base) {
-  const clean = (base || "demo").toLowerCase().replace(/[^a-z0-9]/g, "") || "demo";
-  const providers = ["gmail.com", "outlook.com", "hotmail.com", "maildemo.com"];
-  return `${clean}${randNum(10, 9999)}@${rand(providers)}`;
+function makePlus(local, count) {
+  const out = [];
+  for (let i = 1; i <= count; i++) out.push(`${local}+${i}@gmail.com`);
+  return out;
 }
 
-function generateFakeData() {
-  const first = rand(firstNames);
-  const last = rand(lastNames);
-  const username = `${first.toLowerCase()}${last.toLowerCase()}${randNum(10, 999)}`;
-  return {
-    fullName: `${first} ${last}`,
-    username,
-    email: generateEmailVariant(first + last),
-    city: rand(cities),
-    phone: `05${randNum(30, 55)} ${randNum(100, 999)} ${randNum(10, 99)} ${randNum(10, 99)}`,
-    bio: rand(bioTemplates),
-  };
+function makeDot(local, count) {
+  const dots = dotVariants(local, Math.min(4096, count * 6));
+  return uniq(dots.slice(0, count).map((v) => `${v}@gmail.com`)).slice(0, count);
 }
 
-function SidebarButton({ active, icon: Icon, children, onClick }) {
+function makeDotPlus(local, count) {
+  const baseDots = dotVariants(local, Math.min(4096, count * 6));
+  const out = [];
+  let tag = 1;
+  for (let i = 0; i < baseDots.length && out.length < count; i++) {
+    out.push(`${baseDots[i]}+${tag}@gmail.com`);
+    tag++;
+  }
+  return uniq(out).slice(0, count);
+}
+
+function modeLabel(mode) {
+  if (mode === "plus") return "+tag";
+  if (mode === "dot") return "nokta";
+  return "karma";
+}
+
+function StatCard({ icon: Icon, label, value, sub }) {
   return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
-        active
-          ? "bg-cyan-500 text-slate-950 shadow-[0_0_30px_rgba(34,211,238,0.18)]"
-          : "bg-slate-900/40 text-slate-300 hover:bg-slate-800/80"
-      }`}
-    >
-      <Icon className="h-4 w-4" />
-      <span className="font-semibold">{children}</span>
-    </button>
+    <div className="rounded-[26px] border border-slate-800/90 bg-slate-900/60 p-5 shadow-2xl backdrop-blur">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3">
+          <Icon className="h-5 w-5 text-cyan-300" />
+        </div>
+        <div className="text-sm text-slate-400">{label}</div>
+      </div>
+      <div className="text-3xl font-black tracking-tight text-slate-50">{value}</div>
+      {sub ? <div className="mt-1 text-sm text-slate-500">{sub}</div> : null}
+    </div>
   );
 }
 
-function StatCard({ value, label }) {
+function SectionTitle({ icon: Icon, title, desc, action }) {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-      <div className="text-2xl font-black text-cyan-200">{value}</div>
-      <div className="mt-1 text-sm text-slate-400">{label}</div>
+    <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+          <Icon className="h-5 w-5 text-cyan-300" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-slate-50">{title}</h2>
+          <p className="mt-1 text-sm text-slate-400">{desc}</p>
+        </div>
+      </div>
+      {action}
     </div>
   );
 }
 
 export default function Page() {
-  const [page, setPage] = useState("dashboard");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
-  const [authName, setAuthName] = useState("Berdan");
-  const [authEmail, setAuthEmail] = useState("berdan@example.com");
-  const [authPassword, setAuthPassword] = useState("12345678");
+  const [view, setView] = useState("dashboard");
+  const [theme, setTheme] = useState("cyan");
+  const [email, setEmail] = useState("beysehmus744@gmail.com");
+  const [count, setCount] = useState(20);
+  const [mode, setMode] = useState("plus");
+  const [items, setItems] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [query, setQuery] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [stats, setStats] = useState({ generated: 0, copied: 0, exported: 0, favorited: 0 });
+  const [brandName, setBrandName] = useState("Alias Üretim Paneli");
+  const [supportUrl, setSupportUrl] = useState("https://discord.com/users/816990858515709962");
 
-  const [usernameStyle, setUsernameStyle] = useState("cool");
-  const [usernameCount, setUsernameCount] = useState(12);
-  const [usernames, setUsernames] = useState(() => Array.from({ length: 12 }, () => generateUsername("cool")));
-
-  const [passwordLength, setPasswordLength] = useState(14);
-  const [passwords, setPasswords] = useState(() => Array.from({ length: 8 }, () => generatePassword(14)));
-
-  const [profiles, setProfiles] = useState(() => Array.from({ length: 6 }, () => generateProfile()));
-  const [bioCount, setBioCount] = useState(8);
-  const [bioList, setBioList] = useState(() => Array.from({ length: 8 }, () => rand(bioTemplates)));
-  const [fakeBase, setFakeBase] = useState("berdan");
-  const [fakeRows, setFakeRows] = useState(() => Array.from({ length: 6 }, () => generateFakeData()));
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const usernameSummary = useMemo(() => `${usernames.length} adet kullanıcı adı üretildi`, [usernames]);
-  const passwordSummary = useMemo(() => `${passwords.length} adet şifre hazır`, [passwords]);
-
-  const regenerateUsernames = () => {
-    const count = Math.max(1, Math.min(50, Number(usernameCount) || 1));
-    setUsernames(Array.from({ length: count }, () => generateUsername(usernameStyle)));
-  };
-
-  const regeneratePasswords = () => {
-    const len = Math.max(8, Math.min(32, Number(passwordLength) || 14));
-    setPasswords(Array.from({ length: 8 }, () => generatePassword(len)));
-  };
-
-  const regenerateProfiles = () => {
-    setProfiles(Array.from({ length: 6 }, () => generateProfile()));
-  };
-
-  const regenerateBios = () => {
-    const count = Math.max(1, Math.min(20, Number(bioCount) || 1));
-    setBioList(Array.from({ length: count }, () => rand(bioTemplates)));
-  };
-
-  const regenerateFakeRows = () => {
-    setFakeRows(
-      Array.from({ length: 6 }, () => ({
-        ...generateFakeData(),
-        email: generateEmailVariant(fakeBase),
-      }))
-    );
-  };
-
-  React.useEffect(() => {
-    const savedLogged = localStorage.getItem("utp_logged_in");
-    const savedName = localStorage.getItem("utp_name");
-    const savedEmail = localStorage.getItem("utp_email");
-    if (savedLogged === "1") setLoggedIn(true);
-    if (savedName) setAuthName(savedName);
-    if (savedEmail) setAuthEmail(savedEmail);
+  useEffect(() => {
+    const saved = localStorage.getItem("alias_pro_state_v1");
+    if (!saved) return;
+    try {
+      const data = JSON.parse(saved);
+      if (data.theme) setTheme(data.theme);
+      if (data.brandName) setBrandName(data.brandName);
+      if (data.supportUrl) setSupportUrl(data.supportUrl);
+      if (Array.isArray(data.favorites)) setFavorites(data.favorites);
+      if (Array.isArray(data.history)) setHistory(data.history);
+      if (data.stats) setStats(data.stats);
+      if (data.email) setEmail(data.email);
+      if (data.count) setCount(data.count);
+      if (data.mode) setMode(data.mode);
+    } catch {}
   }, []);
 
-  React.useEffect(() => {
-    localStorage.setItem("utp_logged_in", loggedIn ? "1" : "0");
-    localStorage.setItem("utp_name", authName);
-    localStorage.setItem("utp_email", authEmail);
-  }, [loggedIn, authName, authEmail]);
-
-  const filteredUsernames = usernames.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredPasswords = passwords.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredBios = bioList.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredFakeRows = fakeRows.filter((row) =>
-    [row.fullName, row.username, row.email, row.city, row.phone, row.bio]
-      .join(" ")
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
-
-  const exportCsv = () => {
-    const header = ["fullName", "username", "email", "city", "phone", "bio"];
-    const rows = filteredFakeRows.map((row) => [row.fullName, row.username, row.email, row.city, row.phone, row.bio]);
-    const csv = [header, ...rows]
-  .map(line =>
-    line.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(",")
-  )
-  .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "fake-data.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportJson = () => {
-    const blob = new Blob([
-      JSON.stringify(
-        {
-          usernames,
-          passwords,
-          profiles,
-          bioList,
-          fakeRows,
-        },
-        null,
-        2
-      ),
-    ], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "panel-export.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  if (!loggedIn) {
-    return (
-      <div className="min-h-screen bg-[radial-gradient(circle_at_top,#0f3b52_0%,#020617_38%,#000814_100%)] px-4 py-10 text-white">
-        <div className="mx-auto max-w-5xl">
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_60px_rgba(34,211,238,0.15)]">
-              <Sparkles className="h-7 w-7 text-cyan-300" />
-            </div>
-            <h1 className="text-4xl font-black tracking-tight md:text-5xl">Ultimate Tools Panel</h1>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-slate-300">
-              Login, dashboard, tool modülleri, export ve modern tasarım tek panel içinde hazır.
-            </p>
-          </motion.div>
-
-          <div className="grid gap-6 lg:grid-cols-[1.15fr,.85fr]">
-            <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6 backdrop-blur">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3">
-                  {authMode === "login" ? <LogIn className="h-5 w-5 text-cyan-300" /> : <UserPlus className="h-5 w-5 text-cyan-300" />}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-100">{authMode === "login" ? "Giriş Yap" : "Kayıt Ol"}</h2>
-                  <p className="text-sm text-slate-400">Frontend demo auth ekranı hazır. Sonra backend bağlanabilir.</p>
-                </div>
-              </div>
-
-              <div className="mb-4 grid grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/50 p-1">
-                <button onClick={() => setAuthMode("login")} className={`rounded-xl px-4 py-3 font-semibold ${authMode === "login" ? "bg-cyan-500 text-slate-950" : "text-slate-300"}`}>
-                  Giriş
-                </button>
-                <button onClick={() => setAuthMode("register")} className={`rounded-xl px-4 py-3 font-semibold ${authMode === "register" ? "bg-cyan-500 text-slate-950" : "text-slate-300"}`}>
-                  Kayıt
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {authMode === "register" && (
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Ad Soyad</label>
-                    <input value={authName} onChange={(e) => setAuthName(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none" />
-                  </div>
-                )}
-                <div>
-                  <label className="mb-2 block text-sm text-slate-300">E-posta</label>
-                  <input value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none" />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm text-slate-300">Şifre</label>
-                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none" />
-                </div>
-                <button onClick={() => setLoggedIn(true)} className="flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
-                  <Check className="mr-2 h-4 w-4" />
-                  {authMode === "login" ? "Panele Gir" : "Hesap Oluştur"}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <StatCard value="6+" label="Hazır modül" />
-              <StatCard value="Dark" label="Modern arayüz" />
-              <StatCard value="JSON" label="Export desteği" />
-              <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6 backdrop-blur">
-                <h3 className="mb-3 text-lg font-bold text-slate-100">Bu sürümde neler var?</h3>
-                <ul className="space-y-3 text-sm text-slate-300">
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> Login / register ekranı</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> Dashboard ve sol menü</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> Kullanıcı adı üretici</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> Şifre üretici</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> Bio ve demo veri araçları</li>
-                  <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 text-cyan-300" /> JSON export</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+  useEffect(() => {
+    localStorage.setItem(
+      "alias_pro_state_v1",
+      JSON.stringify({ theme, brandName, supportUrl, favorites, history, stats, email, count, mode })
     );
-  }
+  }, [theme, brandName, supportUrl, favorites, history, stats, email, count, mode]);
+
+  const themeMap = {
+    cyan: "bg-[radial-gradient(circle_at_top,#083b58_0%,#020617_38%,#000814_100%)]",
+    violet: "bg-[radial-gradient(circle_at_top,#312e81_0%,#111827_38%,#030712_100%)]",
+    emerald: "bg-[radial-gradient(circle_at_top,#064e3b_0%,#052e2b_38%,#020617_100%)]",
+  };
+
+  const notify = (text) => {
+    const id = Date.now() + Math.random();
+    setNotifications((prev) => [...prev, { id, text }].slice(-4));
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((x) => x.id !== id));
+    }, 2200);
+  };
+
+  const filteredItems = useMemo(() => {
+    return items.filter((x) => x.toLowerCase().includes(query.toLowerCase()));
+  }, [items, query]);
+
+  const filteredFavorites = useMemo(() => {
+    return favorites.filter((x) => x.toLowerCase().includes(query.toLowerCase()));
+  }, [favorites, query]);
+
+  const generateAliases = () => {
+    const parsed = parseGmail(email);
+    if (!parsed) {
+      notify("Sadece gmail.com formatı kullan.");
+      return;
+    }
+
+    const safeCount = Math.max(1, Math.min(200, Number(count) || 1));
+    setCount(safeCount);
+
+    let out = [];
+    if (mode === "plus") out = makePlus(parsed.local, safeCount);
+    if (mode === "dot") out = makeDot(parsed.local, safeCount);
+    if (mode === "dotplus") out = makeDotPlus(parsed.local, safeCount);
+
+    setItems(out);
+    setStats((prev) => ({ ...prev, generated: prev.generated + out.length }));
+    setHistory((prev) => [
+      {
+        id: Date.now(),
+        email: `${parsed.local}@gmail.com`,
+        mode,
+        count: out.length,
+        createdAt: new Date().toLocaleString("tr-TR"),
+      },
+      ...prev,
+    ].slice(0, MAX_HISTORY));
+    setView("generator");
+    notify("Alias listesi üretildi.");
+  };
+
+  const resetAll = () => {
+    setItems([]);
+    setQuery("");
+    notify("Liste temizlendi.");
+  };
+
+  const addFavorite = (value) => {
+    setFavorites((prev) => (prev.includes(value) ? prev : [value, ...prev].slice(0, 50)));
+    setStats((prev) => ({ ...prev, favorited: prev.favorited + 1 }));
+    notify("Favorilere eklendi.");
+  };
+
+  const copyAll = async (list) => {
+    if (!list.length) return notify("Liste boş.");
+    await navigator.clipboard.writeText(list.join("\n"));
+    setStats((prev) => ({ ...prev, copied: prev.copied + list.length }));
+    notify("Tümü kopyalandı.");
+  };
+
+  const exportTxt = (list, filename = "aliaslar.txt") => {
+    if (!list.length) return notify("Liste boş.");
+    downloadTextFile(filename, list.join("\n"));
+    setStats((prev) => ({ ...prev, exported: prev.exported + list.length }));
+    notify("TXT indirildi.");
+  };
+
+  const exportJson = (list) => {
+    if (!list.length) return notify("Liste boş.");
+    const blob = new Blob([JSON.stringify(list, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "aliaslar.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setStats((prev) => ({ ...prev, exported: prev.exported + list.length }));
+    notify("JSON indirildi.");
+  };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#0f3b52_0%,#020617_38%,#000814_100%)] text-white">
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[280px,1fr] lg:px-6">
-        <aside className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-5 backdrop-blur">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10 shadow-[0_0_30px_rgba(34,211,238,0.15)]">
-              <Sparkles className="h-5 w-5 text-cyan-300" />
+    <div className={cn("min-h-screen text-white", themeMap[theme])}>
+      <div className="fixed right-4 top-4 z-50 space-y-2">
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            className="rounded-2xl border border-cyan-400/20 bg-slate-900/90 px-4 py-3 text-sm text-slate-100 shadow-2xl backdrop-blur"
+          >
+            {n.text}
+          </div>
+        ))}
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-center">
+            <div className="rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 shadow-[0_0_60px_rgba(34,211,238,0.18)]">
+              <Sparkles className="h-8 w-8 text-cyan-300" />
             </div>
-            <div>
-              <div className="text-lg font-black">Ultimate Panel</div>
-              <div className="text-sm text-slate-400">{authName || "Kullanıcı"}</div>
+          </div>
+          <h1 className="text-center text-4xl font-black tracking-tight md:text-5xl">{brandName}</h1>
+          <p className="mx-auto mt-4 max-w-3xl text-center text-slate-300">
+            Gmail için +tag ve nokta varyasyonlarını hızlıca üret. Daha premium görünüm, favoriler, geçmiş, export merkezi ve yönetim ayarları tek panel içinde.
+          </p>
+        </div>
+
+        <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <StatCard icon={Gauge} label="Toplam üretim" value={stats.generated} sub="Bu oturum + kayıtlı veriler" />
+          <StatCard icon={Copy} label="Toplam kopyalama" value={stats.copied} sub="Toplu ve tekli işlemler" />
+          <StatCard icon={Download} label="Toplam export" value={stats.exported} sub="TXT ve JSON indirme" />
+          <StatCard icon={Star} label="Favoriler" value={favorites.length} sub="Kaydedilmiş aliaslar" />
+        </div>
+
+        <div className="mb-8 grid gap-4 lg:grid-cols-[260px,1fr]">
+          <aside className="rounded-[28px] border border-slate-800/90 bg-slate-900/60 p-4 shadow-2xl backdrop-blur">
+            <div className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Menü</div>
+            <div className="space-y-2">
+              {[
+                ["dashboard", LayoutDashboard, "Dashboard"],
+                ["generator", Wand2, "Generator"],
+                ["favorites", Star, "Favoriler"],
+                ["history", History, "Geçmiş"],
+                ["exports", Download, "Export Merkezi"],
+                ["settings", Settings, "Ayarlar"],
+              ].map(([key, Icon, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setView(key)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition",
+                    view === key ? "bg-cyan-500 text-slate-950" : "bg-slate-950/50 text-slate-300 hover:bg-slate-800/80"
+                  )}
+                >
+                  <span className="flex items-center gap-3 font-semibold">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ))}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <SidebarButton active={page === "dashboard"} icon={LayoutDashboard} onClick={() => setPage("dashboard")}>Dashboard</SidebarButton>
-            <SidebarButton active={page === "usernames"} icon={User} onClick={() => setPage("usernames")}>Kullanıcı Adı</SidebarButton>
-            <SidebarButton active={page === "passwords"} icon={KeyRound} onClick={() => setPage("passwords")}>Şifreler</SidebarButton>
-            <SidebarButton active={page === "profiles"} icon={FileText} onClick={() => setPage("profiles")}>Demo Profiller</SidebarButton>
-            <SidebarButton active={page === "bios"} icon={Wand2} onClick={() => setPage("bios")}>Bio Generator</SidebarButton>
-            <SidebarButton active={page === "fakedata"} icon={Mail} onClick={() => setPage("fakedata")}>Fake Data</SidebarButton>
-            <SidebarButton active={page === "settings"} icon={Settings} onClick={() => setPage("settings")}>Ayarlar</SidebarButton>
-          </div>
+            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950/50 p-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-300">
+                <ShieldCheck className="h-4 w-4 text-cyan-300" /> Güvenli Kullanım
+              </div>
+              <p className="text-sm leading-6 text-slate-400">
+                Bu sürüm yalnızca alias listesi üretir. Giriş, şifre toplama veya gerçek hesap erişimi içermez.
+              </p>
+            </div>
+          </aside>
 
-          <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="text-sm text-slate-400">Durum</div>
-            <div className="mt-2 text-lg font-bold text-cyan-200">Pro Sürüm Hazır</div>
-            <p className="mt-2 text-sm text-slate-400">İstersen sonraki adımda backend, veritabanı ve gerçek kullanıcı sistemi bağlanır.</p>
-          </div>
-
-          <button onClick={() => { setLoggedIn(false); localStorage.removeItem("utp_logged_in"); }} className="mt-6 w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">
-            Çıkış Yap
-          </button>
-        </aside>
-
-        <main className="space-y-6">
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6 backdrop-blur">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="mb-3 w-full md:hidden">
+          <main className="rounded-[28px] border border-slate-800/90 bg-slate-900/60 p-5 shadow-2xl backdrop-blur md:p-6">
+            <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="relative w-full md:max-w-sm">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
                   placeholder="Panel içinde ara..."
-                  className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none"
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950/70 py-3 pl-11 pr-4 text-white outline-none"
                 />
               </div>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => copyAll(filteredItems)} className="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">
+                  Tümünü Kopyala
+                </button>
+                <button onClick={() => exportTxt(filteredItems)} className="rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
+                  Hızlı TXT İndir
+                </button>
+              </div>
+            </div>
+
+            {view === "dashboard" && (
               <div>
-                <h1 className="text-3xl font-black tracking-tight">{page === "dashboard" ? "Dashboard" : page === "usernames" ? "Kullanıcı Adı Üretici" : page === "passwords" ? "Şifre Üretici" : page === "profiles" ? "Demo Profil Üretici" : page === "bios" ? "Bio Generator" : page === "fakedata" ? "Fake Data" : "Ayarlar"}</h1>
-                <p className="mt-2 text-slate-400">Dark UI, hızlı araçlar ve tek panel mantığı ile hazır sistem.</p>
-              </div>
-              <div className="flex flex-col gap-3 md:flex-row">
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Panel içinde ara..."
-                  className="hidden w-full min-w-[240px] rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none md:block"
+                <SectionTitle
+                  icon={LayoutDashboard}
+                  title="Genel Bakış"
+                  desc="Alias panelinin gelişmiş sürümü. Üret, kaydet, filtrele, export et ve geçmişini takip et."
                 />
-                <button onClick={exportJson} className="rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">JSON Export</button>
-                <button className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">Canlıya Alma Hazır</button>
-              </div>
-            </div>
-          </motion.div>
-
-          {page === "dashboard" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-4">
-                <StatCard value="6" label="Araç modülü" />
-                <StatCard value="100%" label="Frontend hazır" />
-                <StatCard value="Dark" label="Tasarım dili" />
-                <StatCard value="JSON" label="Export desteği" />
-              </div>
-              <div className="grid gap-6 xl:grid-cols-[1.1fr,.9fr]">
-                <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-                  <div className="mb-4 flex items-center gap-3">
-                    <BadgeInfo className="h-5 w-5 text-cyan-300" />
-                    <h2 className="text-xl font-bold">Hazır Özellikler</h2>
+                <div className="grid gap-5 xl:grid-cols-[1.1fr,.9fr]">
+                  <div className="rounded-[26px] border border-slate-800 bg-slate-950/50 p-5">
+                    <div className="mb-4 text-lg font-bold text-slate-100">Hızlı Üretim</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm text-slate-400">Gmail Adresi</label>
+                        <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm text-slate-400">Üretilecek Adet</label>
+                        <input type="number" min={1} max={200} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      {[
+                        ["plus", "+tag", "local+1, local+2..."],
+                        ["dot", "Nokta", "lo.cal / l.o.c.a.l"],
+                        ["dotplus", "Karma", "nokta + tag birleşik"],
+                      ].map(([key, title, desc]) => (
+                        <button
+                          key={key}
+                          onClick={() => setMode(key)}
+                          className={cn(
+                            "rounded-2xl border p-4 text-left transition",
+                            mode === key ? "border-cyan-400/40 bg-cyan-500/10" : "border-slate-800 bg-slate-950/50 hover:bg-slate-900"
+                          )}
+                        >
+                          <div className="font-bold text-slate-100">{title}</div>
+                          <div className="mt-1 text-sm text-slate-400">{desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button onClick={generateAliases} className="rounded-2xl bg-cyan-500 px-5 py-3 font-bold text-slate-950 hover:bg-cyan-400">
+                        Aliasları Üret
+                      </button>
+                      <button onClick={resetAll} className="rounded-2xl border border-slate-700 bg-slate-950 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800">
+                        Temizle
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {[
-                      "Login / register ekranı",
-                      "Modern sidebar",
-                      "Kullanıcı adı üretici",
-                      "Şifre üretici",
-                      "Bio generator",
-                      "Fake data üretici",
-                      "JSON export",
-                      "Responsive tasarım",
-                    ].map((item) => (
-                      <div key={item} className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-slate-200">{item}</div>
-                    ))}
+
+                  <div className="rounded-[26px] border border-slate-800 bg-slate-950/50 p-5">
+                    <div className="mb-4 text-lg font-bold text-slate-100">Son Aktiviteler</div>
+                    <div className="space-y-3">
+                      {history.length === 0 ? (
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-slate-400">Henüz geçmiş yok. İlk üretimini yap.</div>
+                      ) : (
+                        history.slice(0, 5).map((item) => (
+                          <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="font-semibold text-slate-100">{item.email}</div>
+                              <div className="text-xs text-slate-500">{item.createdAt}</div>
+                            </div>
+                            <div className="mt-2 text-sm text-slate-400">{item.count} adet • Mod: {modeLabel(item.mode)}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6">
-                  <div className="mb-4 flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-cyan-300" />
-                    <h2 className="text-xl font-bold">Sonraki Adımlar</h2>
-                  </div>
-                  <ul className="space-y-3 text-slate-300">
-                    <li>• Domain bağlama</li>
-                    <li>• Vercel deploy</li>
-                    <li>• Backend API ekleme</li>
-                    <li>• Veritabanı bağlama</li>
-                    <li>• Gerçek kullanıcı kayıt sistemi</li>
-                    <li>• Admin dashboard geliştirme</li>
-                  </ul>
+              </div>
+            )}
+
+            {view === "generator" && (
+              <div>
+                <SectionTitle
+                  icon={Mail}
+                  title="Alias Generator"
+                  desc="Üretilen listeyi filtrele, tek tek kopyala, favorilere ekle veya export et."
+                  action={
+                    <div className="flex gap-3">
+                      <button onClick={() => exportJson(filteredItems)} className="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">
+                        JSON
+                      </button>
+                      <button onClick={() => exportTxt(filteredItems)} className="rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
+                        TXT İndir
+                      </button>
+                    </div>
+                  }
+                />
+                <div className="space-y-3">
+                  {filteredItems.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 text-slate-400">Liste boş. Önce alias üret.</div>
+                  ) : (
+                    filteredItems.map((item, i) => (
+                      <div key={`${item}-${i}`} className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 md:flex-row md:items-center md:justify-between">
+                        <div className="truncate font-medium text-slate-100">{item}</div>
+                        <div className="flex gap-2">
+                          <button onClick={() => addFavorite(item)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                            <Star className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              copyText(item);
+                              setStats((p) => ({ ...p, copied: p.copied + 1 }));
+                              notify("Kopyalandı.");
+                            }}
+                            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
-            </motion.div>
-          )}
+            )}
 
-          {page === "usernames" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><User className="h-5 w-5 text-cyan-300" /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-50">Kullanıcı Adı Üretici</h2>
-                    <p className="mt-1 text-slate-400">Discord, oyun, sosyal medya veya marka adı için hızlı öneriler.</p>
-                  </div>
+            {view === "favorites" && (
+              <div>
+                <SectionTitle icon={Star} title="Favoriler" desc="Kaydettiğin aliasları burada ayrı olarak tutabilirsin." />
+                <div className="space-y-3">
+                  {filteredFavorites.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 text-slate-400">Henüz favori yok.</div>
+                  ) : (
+                    filteredFavorites.map((item, i) => (
+                      <div key={`${item}-${i}`} className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 md:flex-row md:items-center md:justify-between">
+                        <div className="truncate font-medium text-slate-100">{item}</div>
+                        <div className="flex gap-2">
+                          <button onClick={() => copyText(item)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setFavorites((prev) => prev.filter((x) => x !== item));
+                              notify("Favoriden kaldırıldı.");
+                            }}
+                            className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 hover:bg-rose-500/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-                <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">{usernameSummary}</div>
               </div>
+            )}
 
-              <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-                <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Stil</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[["cool", "Cool"],["gaming", "Gaming"],["short", "Kısa"]].map(([value, label]) => (
-                        <button key={value} onClick={() => setUsernameStyle(value)} className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${usernameStyle === value ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-200" : "border-slate-700 bg-slate-900 text-slate-300"}`}>
+            {view === "history" && (
+              <div>
+                <SectionTitle icon={History} title="Geçmiş" desc="Son üretimlerin burada listelenir." />
+                <div className="space-y-3">
+                  {history.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-5 text-slate-400">Henüz kayıtlı geçmiş yok.</div>
+                  ) : (
+                    history.map((item) => (
+                      <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <div className="font-semibold text-slate-100">{item.email}</div>
+                            <div className="mt-1 text-sm text-slate-400">{item.count} adet • {modeLabel(item.mode)}</div>
+                          </div>
+                          <div className="text-sm text-slate-500">{item.createdAt}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {view === "exports" && (
+              <div>
+                <SectionTitle icon={Download} title="Export Merkezi" desc="Üretilen listeyi farklı formatlarda dışa aktar." />
+                <div className="grid gap-4 md:grid-cols-3">
+                  <button onClick={() => exportTxt(filteredItems, "aliaslar.txt")} className="rounded-[24px] border border-slate-800 bg-slate-950/50 p-5 text-left hover:bg-slate-900">
+                    <div className="text-lg font-bold text-slate-100">TXT Export</div>
+                    <div className="mt-2 text-sm text-slate-400">Hızlı paylaşım ve düz metin kullanım için.</div>
+                  </button>
+                  <button onClick={() => exportJson(filteredItems)} className="rounded-[24px] border border-slate-800 bg-slate-950/50 p-5 text-left hover:bg-slate-900">
+                    <div className="text-lg font-bold text-slate-100">JSON Export</div>
+                    <div className="mt-2 text-sm text-slate-400">Sistem içi kullanım ve veri taşıma için.</div>
+                  </button>
+                  <button onClick={() => copyAll(filteredItems)} className="rounded-[24px] border border-slate-800 bg-slate-950/50 p-5 text-left hover:bg-slate-900">
+                    <div className="text-lg font-bold text-slate-100">Toplu Kopyala</div>
+                    <div className="mt-2 text-sm text-slate-400">Tek tıkla tüm liste panoya alınır.</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {view === "settings" && (
+              <div>
+                <SectionTitle icon={Settings} title="Ayarlar" desc="Marka adı, destek bağlantısı ve tema ayarlarını buradan yönet." />
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <div className="rounded-[26px] border border-slate-800 bg-slate-950/50 p-5">
+                    <div className="mb-4 text-lg font-bold text-slate-100">Marka Ayarları</div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="mb-2 block text-sm text-slate-400">Site adı</label>
+                        <input value={brandName} onChange={(e) => setBrandName(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm text-slate-400">Destek linki</label>
+                        <input value={supportUrl} onChange={(e) => setSupportUrl(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[26px] border border-slate-800 bg-slate-950/50 p-5">
+                    <div className="mb-4 flex items-center gap-2 text-lg font-bold text-slate-100">
+                      <MoonStar className="h-5 w-5 text-cyan-300" /> Tema Seçimi
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        ["cyan", "Cyan"],
+                        ["violet", "Violet"],
+                        ["emerald", "Emerald"],
+                      ].map(([value, label]) => (
+                        <button
+                          key={value}
+                          onClick={() => setTheme(value)}
+                          className={cn(
+                            "rounded-2xl border px-4 py-4 font-semibold",
+                            theme === value ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-200" : "border-slate-700 bg-slate-900 text-slate-300"
+                          )}
+                        >
                           {label}
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Adet</label>
-                    <input type="number" min={1} max={50} value={usernameCount} onChange={(e) => setUsernameCount(Number(e.target.value))} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                  </div>
-                  <button onClick={regenerateUsernames} className="flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
-                    <RefreshCw className="mr-2 h-4 w-4" /> Yeniden Üret
-                  </button>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredUsernames.map((name, i) => (
-                      <div key={`${name}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-                        <span className="truncate text-sm font-semibold text-slate-100">{name}</span>
-                        <button onClick={() => copyText(name)} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {page === "passwords" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><KeyRound className="h-5 w-5 text-cyan-300" /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-50">Şifre Üretici</h2>
-                    <p className="mt-1 text-slate-400">Güçlü ve hızlı şifre listesi oluşturur.</p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">{passwordSummary}</div>
-              </div>
-              <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-                <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Uzunluk</label>
-                    <input type="number" min={8} max={32} value={passwordLength} onChange={(e) => setPasswordLength(Number(e.target.value))} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                  </div>
-                  <button onClick={regeneratePasswords} className="flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
-                    <Shuffle className="mr-2 h-4 w-4" /> Yeni Şifreler
-                  </button>
-                </div>
-                <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  {filteredPasswords.map((pwd, i) => (
-                    <div key={`${pwd}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-                      <span className="break-all font-mono text-sm text-slate-100">{pwd}</span>
-                      <button onClick={() => copyText(pwd)} className="shrink-0 rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
+                    <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-400">
+                      Ayarlar tarayıcıda kayıtlı tutulur. Siteyi yenilesen bile korunur.
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
-            </motion.div>
-          )}
+            )}
+          </main>
+        </div>
 
-          {page === "profiles" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><FileText className="h-5 w-5 text-cyan-300" /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-50">Demo Profil Üretici</h2>
-                    <p className="mt-1 text-slate-400">Test, arayüz gösterimi ve örnek kayıtlar için profil kartları üretir.</p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">Demo data</div>
-              </div>
-              <div className="mb-4 flex justify-end">
-                <button onClick={regenerateProfiles} className="flex items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400"><RefreshCw className="mr-2 h-4 w-4" /> Profilleri Yenile</button>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {profiles.map((profile, i) => (
-                  <div key={`${profile.username}-${i}`} className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-500/10 font-bold text-cyan-200">
-                        {profile.name.split(" ").map((x) => x[0]).join("")}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-100">{profile.name}</div>
-                        <div className="text-sm text-slate-400">@{profile.username}</div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm text-slate-300">
-                      <div><span className="text-slate-500">Mail:</span> {profile.email}</div>
-                      <div><span className="text-slate-500">Şehir:</span> {profile.city}</div>
-                      <div><span className="text-slate-500">Doğum:</span> {profile.birthYear}</div>
-                      <p className="pt-2 text-slate-400">{profile.bio}</p>
-                    </div>
-                    <button onClick={() => copyText(JSON.stringify(profile, null, 2))} className="mt-4 flex w-full items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-slate-100 hover:bg-slate-800">
-                      <Copy className="mr-2 h-4 w-4" /> JSON Kopyala
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {page === "bios" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><Wand2 className="h-5 w-5 text-cyan-300" /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-50">Bio Generator</h2>
-                    <p className="mt-1 text-slate-400">Kısa sosyal medya biyografileri ve profil açıklamaları üretir.</p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">{bioList.length} adet</div>
-              </div>
-              <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-                <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Adet</label>
-                    <input type="number" min={1} max={20} value={bioCount} onChange={(e) => setBioCount(Number(e.target.value))} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                  </div>
-                  <button onClick={regenerateBios} className="flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
-                    <RefreshCw className="mr-2 h-4 w-4" /> Yeni Biyolar
-                  </button>
-                </div>
-                <div className="grid gap-3">
-                  {filteredBios.map((bio, i) => (
-                    <div key={`${bio}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
-                      <span className="text-slate-200">{bio}</span>
-                      <button onClick={() => copyText(bio)} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {page === "fakedata" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><Mail className="h-5 w-5 text-cyan-300" /></div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-50">Fake Data Generator</h2>
-                    <p className="mt-1 text-slate-400">Demo kayıt, test arayüzü ve örnek kullanıcı listesi üretir.</p>
-                  </div>
-                </div>
-                <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200">6 kayıt</div>
-              </div>
-              <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-                <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Mail kökü</label>
-                    <input value={fakeBase} onChange={(e) => setFakeBase(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                  </div>
-                  <button onClick={regenerateFakeRows} className="flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">
-                    <RefreshCw className="mr-2 h-4 w-4" /> Demo Veri Üret
-                  </button>
-                </div>
-                <div className="mb-4 flex justify-end">
-                <button onClick={exportCsv} className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 font-semibold text-cyan-200 hover:bg-cyan-500/20">
-                  CSV Export
-                </button>
-              </div>
-              <div className="space-y-3">
-                {filteredFakeRows.map((row, i) => (
-                    <div key={`${row.username}-${i}`} className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-200">
-                      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                        <div><span className="text-slate-500">Ad:</span> {row.fullName}</div>
-                        <div><span className="text-slate-500">Username:</span> {row.username}</div>
-                        <div><span className="text-slate-500">Mail:</span> {row.email}</div>
-                        <div><span className="text-slate-500">Şehir:</span> {row.city}</div>
-                        <div><span className="text-slate-500">Telefon:</span> {row.phone}</div>
-                      </div>
-                      <div className="mt-2 text-slate-400">{row.bio}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {page === "settings" && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3"><Settings className="h-5 w-5 text-cyan-300" /></div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-50">Ayarlar</h2>
-                  <p className="mt-1 text-slate-400">Şimdilik frontend demo ayar ekranı. Sonra backend ile gerçek ayarlar bağlanır.</p>
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
-                  <div className="mb-2 text-sm text-slate-400">Hesap adı</div>
-                  <input value={authName} onChange={(e) => setAuthName(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-5">
-                  <div className="mb-2 text-sm text-slate-400">Hesap maili</div>
-                  <input value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none" />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </main>
+        <div className="mt-8 rounded-[26px] border border-slate-800/90 bg-slate-900/50 px-5 py-4 text-center text-sm text-slate-400 backdrop-blur">
+          <div className="flex flex-col items-center justify-center gap-2 md:flex-row">
+            <span>BRDN • Premium Alias Panel</span>
+            <span className="hidden md:block">•</span>
+            <a href={supportUrl} target="_blank" rel="noreferrer" className="font-bold text-cyan-300 hover:text-cyan-200">
+              Discord Profilim
+            </a>
+            <span className="hidden md:block">•</span>
+            <span className="flex items-center gap-1"><Info className="h-4 w-4" /> Sadece liste üretir, gerçek hesap erişimi içermez.</span>
+          </div>
+        </div>
       </div>
     </div>
   );
