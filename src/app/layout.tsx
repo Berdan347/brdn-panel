@@ -5,7 +5,11 @@ export const metadata = {
   description: "Profesyonel alias üretim paneli",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="tr">
       <body>{children}</body>
