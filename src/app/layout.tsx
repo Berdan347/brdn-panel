@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Alias Üretim Paneli",
   description: "Profesyonel alias üretim paneli",
