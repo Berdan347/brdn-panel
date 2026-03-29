@@ -165,6 +165,7 @@ export default function Page() {
   const [bioList, setBioList] = useState(() => Array.from({ length: 8 }, () => rand(bioTemplates)));
   const [fakeBase, setFakeBase] = useState("berdan");
   const [fakeRows, setFakeRows] = useState(() => Array.from({ length: 6 }, () => generateFakeData()));
+  const [searchTerm, setSearchTerm] = useState("");
 
   const usernameSummary = useMemo(() => `${usernames.length} adet kullanıcı adı üretildi`, [usernames]);
   const passwordSummary = useMemo(() => `${passwords.length} adet şifre hazır`, [passwords]);
@@ -195,6 +196,47 @@ export default function Page() {
         email: generateEmailVariant(fakeBase),
       }))
     );
+  };
+
+  React.useEffect(() => {
+    const savedLogged = localStorage.getItem("utp_logged_in");
+    const savedName = localStorage.getItem("utp_name");
+    const savedEmail = localStorage.getItem("utp_email");
+    if (savedLogged === "1") setLoggedIn(true);
+    if (savedName) setAuthName(savedName);
+    if (savedEmail) setAuthEmail(savedEmail);
+  }, []);
+
+  React.useEffect(() => {
+    localStorage.setItem("utp_logged_in", loggedIn ? "1" : "0");
+    localStorage.setItem("utp_name", authName);
+    localStorage.setItem("utp_email", authEmail);
+  }, [loggedIn, authName, authEmail]);
+
+  const filteredUsernames = usernames.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredPasswords = passwords.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredBios = bioList.filter((x) => x.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredFakeRows = fakeRows.filter((row) =>
+    [row.fullName, row.username, row.email, row.city, row.phone, row.bio]
+      .join(" ")
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
+
+  const exportCsv = () => {
+    const header = ["fullName", "username", "email", "city", "phone", "bio"];
+    const rows = filteredFakeRows.map((row) => [row.fullName, row.username, row.email, row.city, row.phone, row.bio]);
+    const csv = [header, ...rows]
+      .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("
+");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "fake-data.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportJson = () => {
@@ -328,7 +370,7 @@ export default function Page() {
             <p className="mt-2 text-sm text-slate-400">İstersen sonraki adımda backend, veritabanı ve gerçek kullanıcı sistemi bağlanır.</p>
           </div>
 
-          <button onClick={() => setLoggedIn(false)} className="mt-6 w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">
+          <button onClick={() => { setLoggedIn(false); localStorage.removeItem("utp_logged_in"); }} className="mt-6 w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">
             Çıkış Yap
           </button>
         </aside>
@@ -336,11 +378,25 @@ export default function Page() {
         <main className="space-y-6">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="rounded-[28px] border border-slate-800 bg-slate-900/60 p-6 backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="mb-3 w-full md:hidden">
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Panel içinde ara..."
+                  className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none"
+                />
+              </div>
               <div>
                 <h1 className="text-3xl font-black tracking-tight">{page === "dashboard" ? "Dashboard" : page === "usernames" ? "Kullanıcı Adı Üretici" : page === "passwords" ? "Şifre Üretici" : page === "profiles" ? "Demo Profil Üretici" : page === "bios" ? "Bio Generator" : page === "fakedata" ? "Fake Data" : "Ayarlar"}</h1>
                 <p className="mt-2 text-slate-400">Dark UI, hızlı araçlar ve tek panel mantığı ile hazır sistem.</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 md:flex-row">
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Panel içinde ara..."
+                  className="hidden w-full min-w-[240px] rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none md:block"
+                />
                 <button onClick={exportJson} className="rounded-2xl bg-cyan-500 px-4 py-3 font-bold text-slate-950 hover:bg-cyan-400">JSON Export</button>
                 <button className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-slate-200 hover:bg-slate-800">Canlıya Alma Hazır</button>
               </div>
@@ -429,7 +485,7 @@ export default function Page() {
                 </div>
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {usernames.map((name, i) => (
+                    {filteredUsernames.map((name, i) => (
                       <div key={`${name}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
                         <span className="truncate text-sm font-semibold text-slate-100">{name}</span>
                         <button onClick={() => copyText(name)} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
@@ -464,7 +520,7 @@ export default function Page() {
                   </button>
                 </div>
                 <div className="space-y-3 rounded-3xl border border-slate-800 bg-slate-950/40 p-4">
-                  {passwords.map((pwd, i) => (
+                  {filteredPasswords.map((pwd, i) => (
                     <div key={`${pwd}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
                       <span className="break-all font-mono text-sm text-slate-100">{pwd}</span>
                       <button onClick={() => copyText(pwd)} className="shrink-0 rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
@@ -540,7 +596,7 @@ export default function Page() {
                   </button>
                 </div>
                 <div className="grid gap-3">
-                  {bioList.map((bio, i) => (
+                  {filteredBios.map((bio, i) => (
                     <div key={`${bio}-${i}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
                       <span className="text-slate-200">{bio}</span>
                       <button onClick={() => copyText(bio)} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800"><Copy className="h-4 w-4" /></button>
@@ -573,8 +629,13 @@ export default function Page() {
                     <RefreshCw className="mr-2 h-4 w-4" /> Demo Veri Üret
                   </button>
                 </div>
-                <div className="space-y-3">
-                  {fakeRows.map((row, i) => (
+                <div className="mb-4 flex justify-end">
+                <button onClick={exportCsv} className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 font-semibold text-cyan-200 hover:bg-cyan-500/20">
+                  CSV Export
+                </button>
+              </div>
+              <div className="space-y-3">
+                {filteredFakeRows.map((row, i) => (
                     <div key={`${row.username}-${i}`} className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-200">
                       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                         <div><span className="text-slate-500">Ad:</span> {row.fullName}</div>
